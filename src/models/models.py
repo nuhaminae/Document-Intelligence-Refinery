@@ -46,6 +46,7 @@ class DocumentProfile(BaseModel):
     """Core document profile model"""
 
     document_id: str
+    file_path: str
     origin_type: OriginType
     layout_complexity: LayoutComplexity
     domain_hint: Optional[str]
