@@ -1,7 +1,9 @@
 # src/agents/triage.py
-# script to define preeliminary document classification
+# script to define preliminary document classification
 
 from typing import Dict
+
+import pdfplumber
 
 from src.models.models import DocumentProfile, LayoutComplexity, OriginType
 
@@ -16,6 +18,42 @@ class TriageAgent:
 
     def __init__(self):
         pass
+
+    def compute_metrics(self, file_path: str) -> Dict:
+        """
+        Compute document metrics using pdfplumber:
+            - char_density: characters per unit page area
+            - whitespace_ratio: estimated whitespace vs text area
+            - bbox_distribution: x_max values for column detection
+        """
+        total_chars, total_area, whitespace_area = 0, 0, 0
+        bbox_distribution = {"x_max": []}
+
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                page_area = page.width * page.height
+                total_area += page_area
+
+                chars = page.chars
+                total_chars += len(chars)
+
+                # Collect x_max values for column detection
+                if chars:
+                    x_max_values = [c["x1"] for c in chars]
+                    bbox_distribution["x_max"].extend(x_max_values)
+
+                # Estimate text area as sum of character widths
+                text_area = sum((c["x1"] - c["x0"]) for c in chars)
+                whitespace_area += max(page_area - text_area, 0)
+
+        char_density = total_chars / total_area if total_area else 0
+        whitespace_ratio = whitespace_area / total_area if total_area else 0
+
+        return {
+            "char_density": char_density,
+            "whitespace_ratio": whitespace_ratio,
+            "bbox_distribution": bbox_distribution,
+        }
 
     def analyse_document(self, document_id: str, metrics: Dict) -> DocumentProfile:
         """
@@ -65,6 +103,7 @@ class TriageAgent:
             whitespace_ratio=metrics["whitespace_ratio"],
             bbox_distribution=metrics["bbox_distribution"],
             triage_confidence=confidence,
+            file_path=metrics.get("file_path"),
         )
 
     # -- Confidence scoring helper funciton--
