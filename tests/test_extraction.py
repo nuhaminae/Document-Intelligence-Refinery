@@ -1,4 +1,5 @@
 # tests/test_extraction.py
+# RUN: pytest tests/test_extraction.py
 
 import pytest
 
