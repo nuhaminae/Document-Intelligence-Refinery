@@ -13,6 +13,8 @@ class OriginType(str, Enum):
 
     digital = "digital"
     scanned = "scanned"
+    mixed = "mixed"
+    form_fillable = "form_fillable"
 
 
 class LayoutComplexity(str, Enum):
@@ -22,6 +24,7 @@ class LayoutComplexity(str, Enum):
     multi_column = "multi_column"
     table_heavy = "table_heavy"
     figure_heavy = "figure_heavy"
+    mixed = "mixed"
 
 
 class StrategyType(str, Enum):
@@ -65,6 +68,7 @@ class ProvenanceChain(BaseModel):
     source_page: int
     transformations: List[str]
     confidence_score: float
+    content_hash: str
 
 
 class LDU(BaseModel):
