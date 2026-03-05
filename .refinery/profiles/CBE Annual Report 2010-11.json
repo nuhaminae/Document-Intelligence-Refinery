@@ -1,0 +1,16 @@
+{
+  "document_id": "CBE Annual Report 2010-11",
+  "file_path": "data\\CBE Annual Report 2010-11.pdf",
+  "origin_type": "digital",
+  "layout_complexity": "single_column",
+  "domain_hint": "general",
+  "char_density": 0.001,
+  "whitespace_ratio": 0.2,
+  "bbox_distribution": {
+    "x_max": [
+      200.0,
+      400.0
+    ]
+  },
+  "triage_confidence": 0.9
+}
