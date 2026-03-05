@@ -1,0 +1,47 @@
+# Extraction Rules & Thresholds
+# Externalised configuration for the Document Intelligence Refinery
+
+version: "1.0"
+
+thresholds:
+  # Character density thresholds (chars / page area)
+  char_density:
+    high: 0.0015   # FastText candidate
+    medium_low: 0.0005   # Layout-aware candidate
+    low: 0.0005   # Vision candidate
+
+  # Whitespace ratio thresholds (whitespace area / page area)
+  whitespace_ratio:
+    low: 0.3      # FastText candidate
+    medium: 0.6   # Layout-aware candidate
+    high: 0.6     # Vision candidate
+
+  # Image area ratio thresholds (image area / page area)
+  image_area_ratio:
+    max_fasttext: 0.5   # If > 50%, escalate to Vision
+
+confidence_scoring:
+  fasttext:
+    min_chars_per_page: 100
+    max_image_area_ratio: 0.5
+    required_font_metadata: true
+  layout:
+    min_table_detection_confidence: 0.7
+    min_multi_column_confidence: 0.7
+  vision:
+    triggers:
+      - scanned_image
+      - handwriting_detected
+      - low_confidence_from_A_or_B
+
+chunking_rules:
+  # Constitution for Logical Document Units (LDUs)
+  - rule: "Table cells must never be split from their header row."
+  - rule: "Figure captions must always be stored as metadata of their parent figure."
+  - rule: "Numbered lists must remain intact unless exceeding max_tokens."
+  - rule: "Section headers must be stored as parent metadata for all child chunks."
+  - rule: "Cross-references (e.g., 'see Table 3') must be resolved and stored as chunk relationships."
+
+budget_guard:
+  max_cost_per_document_usd: 0.50
+  escalation_policy: "Escalate from FastText → LayoutAware → Vision only if confidence < threshold."
