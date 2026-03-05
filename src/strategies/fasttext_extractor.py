@@ -1,6 +1,7 @@
 # src/strategies/fasttext_extractor.py
 # script to define extraction strategies with pdfplumber
 
+import hashlib
 from typing import List
 
 import pdfplumber
@@ -34,16 +35,50 @@ class FastTextExtractor:
                 if not text:
                     continue
 
-                # Each line becomes an LDU
-                for i, line in enumerate(text.splitlines()):
+                lines = text.splitlines()
+                i = 0
+                while i < len(lines):
+                    line = lines[i].strip()
                     ldu_id = f"ldu_{page_num}_{i}"
                     bbox = (0, 0, page.width, page.height)  # simplified bbox
+
+                    # --- Detect captions ---
+                    if line.lower().startswith(("figure", "fig", "table")):
+                        ldu_type = LDUType.caption
+                        content = line
+                        i += 1
+
+                    # --- Detect lists (group consecutive items) ---
+                    elif line.startswith(("-", "•")) or line[0].isdigit():
+                        ldu_type = LDUType.paragraph
+                        list_items = [line]
+                        j = i + 1
+                        while j < len(lines):
+                            next_line = lines[j].strip()
+                            if (
+                                next_line.startswith(("-", "•"))
+                                or next_line[0].isdigit()
+                            ):
+                                list_items.append(next_line)
+                                j += 1
+                            else:
+                                break
+                        content = "\n".join(list_items)
+                        i = j  # skip ahead past grouped list
+
+                    else:
+                        ldu_type = LDUType.paragraph
+                        content = line
+                        i += 1
+
+                    # --- Compute content hash ---
+                    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
                     ldus.append(
                         LDU(
                             ldu_id=ldu_id,
-                            type=LDUType.paragraph,
-                            text=line,
+                            type=ldu_type,
+                            text=content,
                             table_data=None,
                             figure_ref=None,
                             bbox=bbox,
@@ -51,6 +86,7 @@ class FastTextExtractor:
                         )
                     )
 
+                    # --- Provenance ---
                     provenance.append(
                         ProvenanceChain(
                             ldu_id=ldu_id,
@@ -59,6 +95,7 @@ class FastTextExtractor:
                             source_page=page_num,
                             transformations=["raw_text_extraction"],
                             confidence_score=profile.triage_confidence,
+                            content_hash=content_hash,
                         )
                     )
 
