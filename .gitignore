@@ -1,5 +1,6 @@
-# Virtual Env
+# Virtual Env and Cloned Directory
 .venv
+chunkr/
 
 # Python Artifacts
 __pycache__/
