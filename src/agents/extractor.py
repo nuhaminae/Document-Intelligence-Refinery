@@ -25,11 +25,13 @@ class ExtractionRouter:
         profiles_dir=".refinery/profiles",
         ledger_path=".refinery/extraction_ledger.jsonl",
         confidence_threshold=0.75,
+        max_cost_usd=0.50,
     ):
         self.input_dir = input_dir
         self.profiles_dir = profiles_dir
         self.ledger_path = ledger_path
         self.confidence_threshold = confidence_threshold
+        self.max_cost_usd = max_cost_usd
         os.makedirs(self.profiles_dir, exist_ok=True)
 
     def build_profiles(self):
@@ -49,7 +51,7 @@ class ExtractionRouter:
                 metrics["origin_type_hint"] = (
                     "scanned" if "scan" in fname.lower() else "digital"
                 )
-                metrics["domain_hint"] = "general"
+                metrics["domain_hint"] = triage._classify_domain(file_path)
                 metrics["file_path"] = file_path
 
                 # Analyse document to produce a profile
@@ -113,8 +115,15 @@ class ExtractionRouter:
             extracted_doc: ExtractedDocument = extractor.extract(profile)
             runtime_sec = round(time.time() - start_time, 2)
 
-            # Confidence-gated escalation
-            if extracted_doc.extraction_confidence < self.confidence_threshold:
+            # Estimate cost (simple heuristic: tokens/1000 * $0.01)
+            tokens = len(json.dumps(extracted_doc.model_dump())) // 4
+            cost_usd = (tokens / 1000) * 0.01
+
+            # Confidence-gated escalation with budget guard
+            if (
+                extracted_doc.extraction_confidence < self.confidence_threshold
+                and cost_usd <= self.max_cost_usd
+            ):
                 print(
                     f"Low confidence ({extracted_doc.extraction_confidence}) for {profile.document_id}, escalating..."
                 )
@@ -138,8 +147,9 @@ class ExtractionRouter:
                     prov.model_dump() for prov in extracted_doc.provenance_chain
                 ],
                 "cost_estimate": {
-                    "tokens": len(json.dumps(extracted_doc.model_dump())) // 4,
+                    "tokens": tokens,
                     "runtime_sec": runtime_sec,
+                    "usd": round(cost_usd, 4),
                 },
             }
             with open(self.ledger_path, "a", encoding="utf-8") as ledger_file:
