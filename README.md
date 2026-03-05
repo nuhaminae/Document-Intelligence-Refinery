@@ -72,7 +72,6 @@ Document-Intelligence-Refinery/
 
 - Python 3.12+  
 - Git  
-- Docker & Docker Compose
 
 ### Setup
 
@@ -83,7 +82,8 @@ cd Document-Intelligence-Refinery
 
 # Install dependencies
 pip install uv
-uv sync
+uv pip install -r pyproject.toml
+
 
 # Clone chunkr into director
 git clone https://github.com/lumina-ai-inc/chunkr.git
@@ -104,15 +104,7 @@ cp .env.example .env
   python -m src.utils.preprocessor
   ```
 
-3. Start Chunkr API with Docker Compose:  
-
-   ```bash
-   docker compose up
-   ```
-
-   The API will be available at `http://localhost:8000/docs`.
-
-4. Run the extractor:  
+3. Run the extractor:  
 
    ```bash
    python -m src.agents.extractor
