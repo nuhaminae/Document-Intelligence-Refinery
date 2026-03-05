@@ -12,7 +12,7 @@ def agent():
     return TriageAgent()
 
 
-def test_analyse_document_digital_single_column(agent):
+def test_analyse_document_form_fillable_single_column(agent):
     metrics = {
         "char_density": 0.002,
         "whitespace_ratio": 0.2,
@@ -26,7 +26,7 @@ def test_analyse_document_digital_single_column(agent):
     profile = agent.analyse_document("doc1", metrics)
 
     assert isinstance(profile, DocumentProfile)
-    assert profile.origin_type == OriginType.digital
+    assert profile.origin_type == OriginType.form_fillable
     assert profile.layout_complexity == LayoutComplexity.single_column
     assert profile.triage_confidence == 0.9
     assert profile.domain_hint == "finance"
