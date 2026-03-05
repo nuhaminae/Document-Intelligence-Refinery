@@ -1,4 +1,5 @@
 # tests/test_triage.py
+# RUN: pytest tests/test_triage.py
 
 import pytest
 
@@ -51,6 +52,7 @@ def test_analyse_document_figure_heavy(agent):
         "whitespace_ratio": 0.6,
         "bbox_distribution": {"x_max": [50]},
         "origin_type_hint": "digital",
+        "file_path": "figure.pdf",  # added file_path
     }
 
     profile = agent.analyse_document("doc3", metrics)
@@ -65,6 +67,7 @@ def test_analyse_document_table_heavy(agent):
         "whitespace_ratio": 0.2,
         "bbox_distribution": {"x_max": [50]},
         "origin_type_hint": "digital",
+        "file_path": "table.pdf",  # added file_path
     }
 
     profile = agent.analyse_document("doc4", metrics)
