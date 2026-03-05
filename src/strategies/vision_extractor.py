@@ -1,14 +1,18 @@
 # src/strategies/vision_extractor.py
+# script to define extraction strategies with MinerU
 
+import hashlib
 from typing import List
 
-import requests
+from mineru.backend.hybrid.hybrid_analyze import doc_analyze
+from mineru.data.data_reader_writer.dummy import DummyDataWriter
 
 from src.models.models import (
     LDU,
     DocumentProfile,
     ExtractedDocument,
     LDUType,
+    PageIndex,
     ProvenanceChain,
     StrategyType,
 )
@@ -16,87 +20,96 @@ from src.models.models import (
 
 class VisionExtractor:
     """
-    Strategy C: Vision-Augmented (Chunkr API)
-    - Best for scanned PDFs, image-heavy documents, charts/figures.
+    Strategy C: Vision-Augmented (MinerU Hybrid Analyzer)
+    - Best for scanned PDFs, low-density text, or complex layouts.
     """
 
-    def __init__(self, pdf_path: str, api_url: str = "http://localhost:8000"):
+    def __init__(self, pdf_path: str):
         self.pdf_path = pdf_path
-        self.api_url = api_url
 
     def extract(self, profile: DocumentProfile) -> ExtractedDocument:
         ldus: List[LDU] = []
         provenance: List[ProvenanceChain] = []
+        page_indexes: List[PageIndex] = []
 
-        # Send PDF to Chunkr API
-        with open(self.pdf_path, "rb") as f:
-            response = requests.post(
-                f"{self.api_url}/process",
-                files={"file": f},
-            )
-        response.raise_for_status()
-        result = response.json()
+        # MinerU hybrid analyzer returns structured JSON
+        result = doc_analyze(self.pdf_path, image_writer=DummyDataWriter())
 
-        # Traverse Chunkr JSON output
-        for page in result.get("pages", []):
-            page_num = page.get("page_number", 0)
+        metadata = result.get("metadata", {})
+        extraction_conf = metadata.get("triage_confidence", profile.triage_confidence)
+        domain_hint = metadata.get("domain_hint", profile.domain_hint)
+
+        for page in result.get("pages", []):  # MinerU may expose per-page info
+            page_ldus: List[LDU] = []
+
             for block in page.get("blocks", []):
-                ldu_id = f"ldu_{page_num}_{block.get('id')}"
-                bbox = tuple(block.get("bbox", [0, 0, 0, 0]))
-                block_type = block.get("type")
+                confidence_score = block.get("confidence", extraction_conf)
+                ldu_id = f"ldu_{block.get('page', 0)}_{block.get('id', 'x')}"
+                bbox = tuple(block.get("bbox", (0, 0, 0, 0)))
 
-                if block_type == "text":
-                    ldus.append(
-                        LDU(
-                            ldu_id=ldu_id,
-                            type=LDUType.paragraph,
-                            text=block.get("text"),
-                            table_data=None,
-                            figure_ref=None,
-                            bbox=bbox,
-                            page_number=page_num,
-                        )
-                    )
+                # --- Normalize block types ---
+                block_type = block.get("type", "paragraph")
+                if block_type in ["paragraph", "text"]:
+                    ldu_type = LDUType.paragraph
+                    content = block.get("text", "")
                 elif block_type == "table":
-                    ldus.append(
-                        LDU(
-                            ldu_id=ldu_id,
-                            type=LDUType.table,
-                            text=None,
-                            table_data=block.get("cells"),
-                            figure_ref=None,
-                            bbox=bbox,
-                            page_number=page_num,
-                        )
-                    )
+                    ldu_type = LDUType.table
+                    content = str(block.get("table", []))
                 elif block_type == "figure":
-                    ldus.append(
-                        LDU(
-                            ldu_id=ldu_id,
-                            type=LDUType.figure,
-                            text=None,
-                            table_data=None,
-                            figure_ref=block.get("image_ref"),
-                            bbox=bbox,
-                            page_number=page_num,
-                        )
-                    )
+                    ldu_type = LDUType.figure
+                    content = block.get("figure", "")
+                else:
+                    ldu_type = LDUType.paragraph
+                    content = block.get("text", "")
 
+                # --- Compute content hash ---
+                content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+                # --- Build LDU ---
+                ldu = LDU(
+                    ldu_id=ldu_id,
+                    type=ldu_type,
+                    text=block.get("text"),
+                    table_data=block.get("table"),
+                    figure_ref=block.get("figure"),
+                    bbox=bbox,
+                    page_number=block.get("page", 0),
+                )
+                ldus.append(ldu)
+                page_ldus.append(ldu)
+
+                # --- Provenance ---
                 provenance.append(
                     ProvenanceChain(
                         ldu_id=ldu_id,
                         strategy_used=StrategyType.vision_augmented,
                         source_bbox=bbox,
-                        source_page=page_num,
-                        transformations=["chunkr_parse"],
-                        confidence_score=profile.triage_confidence,
+                        source_page=block.get("page", 0),
+                        transformations=["mineru_hybrid_analyze"],
+                        confidence_score=confidence_score,
+                        content_hash=content_hash,
                     )
                 )
+
+            # --- Build PageIndex ---
+            page_indexes.append(
+                PageIndex(
+                    page_number=page.get("page", 0),
+                    ldus=page_ldus,
+                    char_density=metadata.get("char_density", profile.char_density),
+                    whitespace_ratio=metadata.get(
+                        "whitespace_ratio", profile.whitespace_ratio
+                    ),
+                    layout_signature=metadata.get(
+                        "bbox_distribution", profile.bbox_distribution
+                    ),
+                )
+            )
 
         return ExtractedDocument(
             document_id=profile.document_id,
             strategy_used=StrategyType.vision_augmented,
             content_blocks=ldus,
             provenance_chain=provenance,
-            extraction_confidence=profile.triage_confidence,
+            extraction_confidence=extraction_conf,
         )
