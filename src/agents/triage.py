@@ -25,9 +25,12 @@ class TriageAgent:
             - char_density: characters per unit page area
             - whitespace_ratio: estimated whitespace vs text area
             - bbox_distribution: x_max values for column detection
+            - image_area_ratio: ratio of image area to page area
+            - has_font_metadata: whether embedded font info exists
         """
-        total_chars, total_area, whitespace_area = 0, 0, 0
+        total_chars, total_area, whitespace_area, image_area = 0, 0, 0, 0
         bbox_distribution = {"x_max": []}
+        has_font_metadata = False
 
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
@@ -46,13 +49,26 @@ class TriageAgent:
                 text_area = sum((c["x1"] - c["x0"]) for c in chars)
                 whitespace_area += max(page_area - text_area, 0)
 
+                # Image area ratio
+                for img in page.images:
+                    img_area = (img["x1"] - img["x0"]) * (img["y1"] - img["y0"])
+                    image_area += img_area
+
+            # Check for font metadata
+            if hasattr(pdf, "doc") and hasattr(pdf.doc, "info"):
+                has_font_metadata = "Font" in str(pdf.doc.info)
+
         char_density = total_chars / total_area if total_area else 0
         whitespace_ratio = whitespace_area / total_area if total_area else 0
+        image_area_ratio = image_area / total_area if total_area else 0
 
         return {
             "char_density": char_density,
             "whitespace_ratio": whitespace_ratio,
             "bbox_distribution": bbox_distribution,
+            "image_area_ratio": image_area_ratio,
+            "has_font_metadata": has_font_metadata,
+            "file_path": file_path,
         }
 
     def analyse_document(self, document_id: str, metrics: Dict) -> DocumentProfile:
@@ -69,6 +85,10 @@ class TriageAgent:
         origin_type = OriginType.digital  # default
         if metrics.get("origin_type_hint") == "scanned":
             origin_type = OriginType.scanned
+        elif metrics["image_area_ratio"] > 0.3 and metrics["char_density"] > 0:
+            origin_type = OriginType.mixed
+        elif metrics.get("has_font_metadata") and metrics["char_density"] > 0.001:
+            origin_type = OriginType.form_fillable
 
         # --- Layout complexity ---
         layout_complexity = LayoutComplexity.single_column  # default
@@ -90,6 +110,13 @@ class TriageAgent:
         # if character density is less than 0.0005
         if metrics["char_density"] < 0.0005:
             layout_complexity = LayoutComplexity.table_heavy
+        if metrics["whitespace_ratio"] > 0.5 and metrics["char_density"] < 0.0005:
+            layout_complexity = LayoutComplexity.mixed
+
+        # --- Domain hint ---
+        domain_hint = metrics.get("domain_hint") or self._classify_domain(
+            metrics["file_path"]
+        )
 
         # --- Confidence scoring ---
         confidence = self._compute_confidence(metrics)
@@ -98,7 +125,7 @@ class TriageAgent:
             document_id=document_id,
             origin_type=origin_type,
             layout_complexity=layout_complexity,
-            domain_hint=metrics.get("domain_hint"),
+            domain_hint=domain_hint,
             char_density=metrics["char_density"],
             whitespace_ratio=metrics["whitespace_ratio"],
             bbox_distribution=metrics["bbox_distribution"],
@@ -106,17 +133,33 @@ class TriageAgent:
             file_path=metrics.get("file_path"),
         )
 
-    # -- Confidence scoring helper funciton--
+    def _classify_domain(self, file_path: str) -> str:
+        """
+        Lightweight domain classifier based on filename keywords.
+        """
+        fname = file_path.lower()
+        if any(word in fname for word in ["invoice", "budget", "tax", "finance"]):
+            return "financial"
+        if any(word in fname for word in ["contract", "law", "court"]):
+            return "legal"
+        if any(word in fname for word in ["experiment", "data", "research"]):
+            return "technical"
+        if any(word in fname for word in ["patient", "diagnosis", "treatment"]):
+            return "medical"
+        return "general"
+
+    # -- Confidence scoring helper function --
     def _compute_confidence(self, metrics: Dict) -> float:
         """
-        Simple heuristic confidence score based on density and whitespace.
+        Multi-signal confidence score based on density, whitespace, image ratio, and font metadata.
         """
         density = metrics["char_density"]
         whitespace = metrics["whitespace_ratio"]
+        image_ratio = metrics.get("image_area_ratio", 0)
+        has_fonts = metrics.get("has_font_metadata", False)
 
-        # Example scoring logic
-        # High density + low whitespace → high confidence (0.9)
-        if density > 0.0015 and whitespace < 0.3:
+        # High density + low whitespace + min image ratio → high confidence (0.9)
+        if density > 0.0015 and whitespace < 0.3 and image_ratio < 0.5 and has_fonts:
             return 0.9
         # Medium density → medium confidence (0.75)
         elif 0.0005 <= density <= 0.0015:
