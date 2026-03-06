@@ -2,11 +2,20 @@
 # script to define extraction router
 
 import json
+import logging
 import os
 import time
 
+logging.basicConfig(level=logging.INFO)
+
 from src.agents.triage import TriageAgent
-from src.models.models import DocumentProfile, ExtractedDocument, StrategyType
+from src.models.models import (
+    DocumentProfile,
+    ExtractedDocument,
+    LayoutComplexity,
+    OriginType,
+    StrategyType,
+)
 from src.strategies.fasttext_extractor import FastTextExtractor
 from src.strategies.layout_extractor import LayoutExtractor
 from src.strategies.vision_extractor import VisionExtractor
@@ -62,22 +71,35 @@ class ExtractionRouter:
 
     def select_strategy(self, profile: DocumentProfile) -> StrategyType:
         """
-        Router logic: decide which strategy to use based on profile metrics.
+        Pragmatic router logic using density, whitespace, image ratio, and font metadata.
         """
-        # --- Strategy A: FastText ---
-        if profile.char_density >= 0.0015 and profile.whitespace_ratio < 0.3:
-            return StrategyType.fasttext
 
-        # --- Strategy B: Layout-Aware ---
-        if 0.0005 <= profile.char_density < 0.0015:
-            if profile.layout_complexity in ["multi_column", "table_heavy"]:
-                return StrategyType.layout_aware
+        density = profile.char_density
+        whitespace = profile.whitespace_ratio
+        image_ratio = getattr(profile, "image_area_ratio", 0)
+        has_fonts = getattr(profile, "has_font_metadata", False)
 
         # --- Strategy C: Vision-Augmented ---
-        if profile.char_density < 0.0005 or profile.whitespace_ratio > 0.6:
+        # Very low density OR very high whitespace → VisionAugmented
+        if density < 0.0005 or whitespace > 0.6:
             return StrategyType.vision_augmented
 
-        # --- Default fallback ---
+        # --- Strategy B: LayoutAware ---
+        # Multi-column or table-heavy layouts → LayoutAware
+        if profile.layout_complexity in [
+            LayoutComplexity.multi_column,
+            LayoutComplexity.table_heavy,
+        ]:
+            return StrategyType.layout_aware
+        if has_fonts and density > 0.001 and profile.origin_type == OriginType.digital:
+            return StrategyType.layout_aware
+
+        # --- Strategy A: FastText ---
+        # Dense text, low whitespace, low image ratio → FastText
+        if density >= 0.001 and whitespace < 0.5 and image_ratio < 0.3:
+            return StrategyType.fasttext
+
+        # --- Fallback ---
         return StrategyType.fasttext
 
     def escalate_strategy(self, current_strategy: StrategyType) -> StrategyType:
@@ -104,16 +126,21 @@ class ExtractionRouter:
         5. Saving extracted document profiles to JSON
         6. Appending to the extraction ledger with cost estimates and provenance chains
         """
-        profiles = self.build_profiles()
 
+        profiles = self.build_profiles()
         for profile in profiles:
             strategy = self.select_strategy(profile)
+            logging.info(f"Document {profile.document_id} → strategy {strategy.value}")
+
             extractor = self._get_extractor(strategy, profile.file_path)
 
             # Run extraction
             start_time = time.time()
             extracted_doc: ExtractedDocument = extractor.extract(profile)
             runtime_sec = round(time.time() - start_time, 2)
+            logging.info(
+                f"Extraction runtime: {runtime_sec}s, confidence={extracted_doc.extraction_confidence}"
+            )
 
             # Estimate cost (simple heuristic: tokens/1000 * $0.01)
             tokens = len(json.dumps(extracted_doc.model_dump())) // 4
