@@ -10,6 +10,7 @@ dependencies = [
     "chromadb>=1.5.2",
     "debugpy>=1.8.20",
     "docker>=7.1.0",
+    "doclayout-yolo>=0.0.4",
     "docling>=2.76.0",
     "dvc>=3.65.0",
     "faiss-cpu>=1.13.2",
@@ -27,6 +28,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "mermaid-py>=0.8.3",
     "mineru>=2.7.6",
+    "opencv-python>=4.13.0.92",
     "openrouter>=0.7.11",
     "pageindex>=0.2.6",
     "pandas>=2.3.3",
@@ -41,6 +43,7 @@ dependencies = [
     "sqlite-utils>=3.39",
     "tornado>=6.5.4",
     "traitlets>=5.14.3",
+    "ultralytics>=8.4.21",
 ]
 
 
