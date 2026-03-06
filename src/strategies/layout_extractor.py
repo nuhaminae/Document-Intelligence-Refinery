@@ -1,8 +1,9 @@
 # src/strategies/layout_extractor.py
-# script to define extraction strategies with Docling/MinerU
+# script to define extraction strategies with Docling
 
 
 import hashlib
+import logging
 from typing import List
 
 from docling.document_converter import DocumentConverter
@@ -36,27 +37,43 @@ class LayoutExtractor:
         result = converter.convert(self.pdf_path)
         doc = result.document  # DoclingDocument
 
-        for page in doc.pages:
+        for page_num, page in doc.pages.items():
+            # Collect all items belonging to this page
+            page_blocks = [
+                b
+                for b in doc.iterate_items()
+                if getattr(b, "page_no", None) == page_num
+            ]
+
+            logging.info(f"Processing page {page_num} with {len(page_blocks)} blocks")
             page_ldus: List[LDU] = []
 
-            for block in page.blocks:
-                ldu_id = f"ldu_{page.page_number}_{block.id}"
-                bbox = tuple(block.bbox) if hasattr(block, "bbox") else (0, 0, 0, 0)
+            for block in page_blocks:
+                ldu_id = f"ldu_{page_num}_{getattr(block, 'id', 'unknown')}"
+                bbox = tuple(getattr(block, "bbox", (0, 0, 0, 0)))
 
                 # --- Paragraphs ---
-                if block.type == "paragraph":
-                    content = block.text or ""
+                if getattr(block, "type", None) == "paragraph":
+                    content = getattr(block, "text", "") or ""
                     ldu_type = LDUType.paragraph
 
-                # --- Tables (group cells with header row) ---
-                elif block.type == "table":
-                    header = block.cells[0] if block.cells else []
-                    rows = block.cells[1:] if len(block.cells) > 1 else []
+                # --- Tables ---
+                elif getattr(block, "type", None) == "table":
+                    header = (
+                        block.cells[0]
+                        if hasattr(block, "cells") and block.cells
+                        else []
+                    )
+                    rows = (
+                        block.cells[1:]
+                        if hasattr(block, "cells") and len(block.cells) > 1
+                        else []
+                    )
                     content = str([header] + rows)
                     ldu_type = LDUType.table
 
-                # --- Figures (attach captions if available) ---
-                elif block.type == "figure":
+                # --- Figures ---
+                elif getattr(block, "type", None) == "figure":
                     caption = getattr(block, "caption", None)
                     content = caption if caption else getattr(block, "image_ref", "")
                     ldu_type = LDUType.figure
@@ -72,15 +89,23 @@ class LayoutExtractor:
                 ldu = LDU(
                     ldu_id=ldu_id,
                     type=ldu_type,
-                    text=block.text if ldu_type == LDUType.paragraph else None,
-                    table_data=block.cells if ldu_type == LDUType.table else None,
+                    text=(
+                        getattr(block, "text", None)
+                        if ldu_type == LDUType.paragraph
+                        else None
+                    ),
+                    table_data=(
+                        getattr(block, "cells", None)
+                        if ldu_type == LDUType.table
+                        else None
+                    ),
                     figure_ref=(
                         getattr(block, "image_ref", None)
                         if ldu_type == LDUType.figure
                         else None
                     ),
                     bbox=bbox,
-                    page_number=page.page_number,
+                    page_number=page_num,
                 )
                 ldus.append(ldu)
                 page_ldus.append(ldu)
@@ -91,7 +116,7 @@ class LayoutExtractor:
                         ldu_id=ldu_id,
                         strategy_used=StrategyType.layout_aware,
                         source_bbox=bbox,
-                        source_page=page.page_number,
+                        source_page=page_num,
                         transformations=["docling_parse"],
                         confidence_score=profile.triage_confidence,
                         content_hash=content_hash,
@@ -101,7 +126,7 @@ class LayoutExtractor:
             # --- Build PageIndex ---
             page_indexes.append(
                 PageIndex(
-                    page_number=page.page_number,
+                    page_number=page_num,
                     ldus=page_ldus,
                     char_density=profile.char_density,
                     whitespace_ratio=profile.whitespace_ratio,
@@ -109,6 +134,7 @@ class LayoutExtractor:
                 )
             )
 
+        # Return ExtractedDocument
         return ExtractedDocument(
             document_id=profile.document_id,
             strategy_used=StrategyType.layout_aware,
