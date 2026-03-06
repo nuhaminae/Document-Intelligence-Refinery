@@ -1,11 +1,14 @@
 # src/agents/triage.py
 # script to define preliminary document classification
 
+import logging
 from typing import Dict
 
 import pdfplumber
 
 from src.models.models import DocumentProfile, LayoutComplexity, OriginType
+
+logging.basicConfig(level=logging.INFO)
 
 
 class TriageAgent:
@@ -83,7 +86,18 @@ class TriageAgent:
 
         # --- Origin type ---
         origin_type = OriginType.digital  # default
-        if metrics.get("origin_type_hint") == "scanned":
+
+        # Strong signal for scanned: sparse text, high whitespace, no fonts
+        if (
+            metrics["char_density"] < 0.0005
+            and metrics["whitespace_ratio"] > 0.9
+            and not metrics.get("has_font_metadata", False)
+        ):
+            origin_type = OriginType.scanned
+            logging.info(
+                f"Origin classified as scanned (density={metrics['char_density']}, whitespace={metrics['whitespace_ratio']}, no font metadata)"
+            )
+        elif metrics.get("origin_type_hint") == "scanned":
             origin_type = OriginType.scanned
         elif metrics["image_area_ratio"] > 0.3 and metrics["char_density"] > 0:
             origin_type = OriginType.mixed
@@ -91,27 +105,40 @@ class TriageAgent:
             origin_type = OriginType.form_fillable
 
         # --- Layout complexity ---
-        layout_complexity = LayoutComplexity.single_column  # default
-        x_range = metrics["bbox_distribution"].get(
-            "x_max", []
-        )  # gets list that contains x_max or an empty list
+        layout_complexity = LayoutComplexity.single_column
+        x_range = metrics["bbox_distribution"].get("x_max", [])
 
-        # Uses bounding box distribution (x_max) to detect multiple columns
-        # if there is more than one x_max and the difference between them is greater than 100
+        # Detect multiple columns if bounding boxes spread widely
         if len(x_range) > 1 and (max(x_range) - min(x_range)) > 100:
             layout_complexity = LayoutComplexity.multi_column
+            logging.info(
+                f"Layout classified as multi_column (spread={max(x_range)-min(x_range)})"
+            )
 
-        # High whitespace ratio → likely figure‑heavy
-        # if whitespace ratio is greater than 50%
+        # High whitespace → figure-heavy
         if metrics["whitespace_ratio"] > 0.5:
             layout_complexity = LayoutComplexity.figure_heavy
+            logging.info(
+                f"Layout classified as figure_heavy (whitespace={metrics['whitespace_ratio']}, image_ratio={metrics['image_area_ratio']})"
+            )
 
-        # Very low character density → table‑heavy
-        # if character density is less than 0.0005
+        # Very low character density → table-heavy
         if metrics["char_density"] < 0.0005:
             layout_complexity = LayoutComplexity.table_heavy
+            logging.info(
+                f"Layout classified as table_heavy (char_density={metrics['char_density']})"
+            )
+
+        # Mixed case: high whitespace + very low density
         if metrics["whitespace_ratio"] > 0.5 and metrics["char_density"] < 0.0005:
-            layout_complexity = LayoutComplexity.mixed
+            if metrics.get("image_area_ratio", 0) > 0.3:
+                layout_complexity = LayoutComplexity.mixed
+                logging.info(
+                    f"Layout classified as mixed (whitespace={metrics['whitespace_ratio']}, char_density={metrics['char_density']}, image_ratio={metrics['image_area_ratio']})"
+                )
+            else:
+                layout_complexity = LayoutComplexity.single_column
+                logging.info("Layout kept as single_column (sparse text but no images)")
 
         # --- Domain hint ---
         domain_hint = metrics.get("domain_hint") or self._classify_domain(
