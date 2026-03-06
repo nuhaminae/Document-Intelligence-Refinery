@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 # --- Enumeration for set of constants ---
 class OriginType(str, Enum):
-    """Differentiates between digital and scanned documents"""
+    """Differentiates between digital, scanned, and mixed documents"""
 
     digital = "digital"
     scanned = "scanned"
