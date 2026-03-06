@@ -20,7 +20,7 @@ The **Document-Intelligence-Refinery** is a modular pipeline for intelligent PDF
   - *LayoutExtractor*: Uses Docling for multi‑column, table‑heavy, or figure‑heavy PDFs.  
   - *VisionExtractor*: Uses MinerU for scanned/image‑heavy documents.  
 - **Provenance Tracking**: Every extracted Logic Document Unit (LDU) is logged with its source, transformations, and confidence.  
-- **Ledger & Profiles**: Outputs JSON profiles and an extraction ledger for reproducibility and auditing.  
+- **Ledger & Profiles**: Outputs JSON profiles and an extraction ledger for reproducibility and auditing.
   
 ---
 
@@ -96,7 +96,17 @@ uv pip install -r pyproject.toml
   python -m src.utils.preprocessor
   ```
 
-3. Run the extractor:  
+3. Set document language (Optional):
+
+  ```bash
+  # src/strategies/vision_extractor.py
+  ...
+    data = pytesseract.image_to_data(
+                img, lang="amh+eng", output_type=pytesseract.Output.DICT
+            )
+   ```
+
+4. Run the extractor:  
 
    ```bash
    python -m src.agents.extractor
