@@ -29,12 +29,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: ${{ runner.os }}-venv-${{ hashFiles('uv.lock') }}
+          key: ${{ runner.os }}-venv-${{ hashFiles('pyproject.toml') }}
           restore-keys: ${{ runner.os }}-venv-
 
       - name: Create and install dependencies if cache miss
         if: steps.venv-cache.outputs.cache-hit != 'true'
-        run: uv sync
+        run: uv pip install .[dev]
 
       - name: Confirm Python version
         run: .venv\Scripts\python.exe --version
