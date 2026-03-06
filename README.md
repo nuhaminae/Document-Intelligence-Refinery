@@ -13,12 +13,12 @@ The **Document-Intelligence-Refinery** is a modular pipeline for intelligent PDF
 
 ## Key Feature
 
-- **Triage Agent**: Computes metrics (character density, whitespace ratio, bounding box distribution) and classifies documents into profiles.  
+- **Triage Agent**: Computes metrics (character density, whitespace ratio, bounding box distribution, and image ratio) and classifies documents into profiles.  
 - **Extraction Router**: Selects the appropriate strategy (FastText, LayoutAware, VisionAugmented) and escalates if confidence is low.  
 - **Strategies**:  
   - *FastTextExtractor*: Uses pdfplumber for native, single‑column PDFs.  
-  - *LayoutExtractor*: Uses Docling/MinerU for multi‑column, table‑heavy, or figure‑heavy PDFs.  
-  - *VisionExtractor*: Calls Chunkr API for scanned/image‑heavy documents.  
+  - *LayoutExtractor*: Uses Docling for multi‑column, table‑heavy, or figure‑heavy PDFs.  
+  - *VisionExtractor*: Uses MinerU for scanned/image‑heavy documents.  
 - **Provenance Tracking**: Every extracted Logic Document Unit (LDU) is logged with its source, transformations, and confidence.  
 - **Ledger & Profiles**: Outputs JSON profiles and an extraction ledger for reproducibility and auditing.  
   
@@ -83,14 +83,6 @@ cd Document-Intelligence-Refinery
 # Install dependencies
 pip install uv
 uv pip install -r pyproject.toml
-
-
-# Clone chunkr into director
-git clone https://github.com/lumina-ai-inc/chunkr.git
-cd chunkr
-
-# Rename .env.example to .env
-cp .env.example .env
 ```
 
 ---
@@ -128,8 +120,8 @@ flowchart TB
     D --> G{"BBox Distribution"}
     G --> H["Narrow x_range (single column)"] & I["Wide x_range (multi-column/tables)"] & K["Highly irregular layout"]
     H --> F
-    I --> J["Docling/MinerU"]
-    K --> L["Vision-Augmented (Chunkr/VLM)"]
+    I --> J["Docling"]
+    K --> L["Vision-Augmented (MinerU/VLM)"]
     E --> M{"Whitespace Ratio"}
     M --> N["Low whitespace (<0.3)"]
     N --> F
