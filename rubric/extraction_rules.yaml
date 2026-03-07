@@ -20,6 +20,10 @@ thresholds:
   image_area_ratio:
     max_fasttext: 0.3   # If > 30%, escalate to Vision
 
+  # Max LDUs per page threshold
+  max_ldus_per_page: 200
+
+
 confidence_scoring:
   fasttext:
     min_chars_per_page: 100
