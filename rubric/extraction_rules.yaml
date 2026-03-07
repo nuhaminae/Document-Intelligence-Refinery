@@ -1,24 +1,24 @@
 # Extraction Rules & Thresholds
 # Externalised configuration for the Document Intelligence Refinery
 
-version: "1.0"
+version: "1.1"
 
 thresholds:
   # Character density thresholds (chars / page area)
   char_density:
-    high: 0.0015   # FastText candidate
+    high: 0.001   # FastText candidate
     medium_low: 0.0005   # Layout-aware candidate
     low: 0.0005   # Vision candidate
 
   # Whitespace ratio thresholds (whitespace area / page area)
   whitespace_ratio:
-    low: 0.3      # FastText candidate
+    low: 0.5      # FastText candidate
     medium: 0.6   # Layout-aware candidate
     high: 0.6     # Vision candidate
 
   # Image area ratio thresholds (image area / page area)
   image_area_ratio:
-    max_fasttext: 0.5   # If > 50%, escalate to Vision
+    max_fasttext: 0.3   # If > 30%, escalate to Vision
 
 confidence_scoring:
   fasttext:
@@ -41,6 +41,11 @@ chunking_rules:
   - rule: "Numbered lists must remain intact unless exceeding max_tokens."
   - rule: "Section headers must be stored as parent metadata for all child chunks."
   - rule: "Cross-references (e.g., 'see Table 3') must be resolved and stored as chunk relationships."
+  # Additional rules
+  - rule: "Footnotes and endnotes must be linked to their reference text."
+  - rule: "Equations must be stored atomically with LaTeX metadata."
+  - rule: "Multi-page tables and figures must preserve continuity across pages."
+  - rule: "Semantic hierarchy must be enforced: sections → subsections → paragraphs."
 
 budget_guard:
   max_cost_per_document_usd: 0.50
