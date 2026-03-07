@@ -1,16 +1,13 @@
 {
   "document_id": "CBE Annual Report 2011-12",
   "file_path": "data\\CBE Annual Report 2011-12.pdf",
-  "origin_type": "digital",
-  "layout_complexity": "single_column",
-  "domain_hint": "general",
-  "char_density": 0.001,
-  "whitespace_ratio": 0.2,
+  "origin_type": "scanned",
+  "layout_complexity": "mixed",
+  "domain_hint": "technical",
+  "char_density": 0.0,
+  "whitespace_ratio": 1.0,
   "bbox_distribution": {
-    "x_max": [
-      200.0,
-      400.0
-    ]
+    "x_max": []
   },
-  "triage_confidence": 0.9
+  "triage_confidence": 0.6
 }
