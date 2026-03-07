@@ -112,6 +112,22 @@ uv pip install -r pyproject.toml
    python -m src.agents.extractor
    ```
 
+5. Run patch doc extractor (holds unified extraction result):
+
+  ```bash
+    python -m src.agents.extract_docs
+  ```
+
+6. Run chunkr:
+   ```bash
+   python -m src.agents.chunkr
+   ```
+
+7. Run indexer:
+    ```bash
+    python -m src.agents.indexer
+    ```
+    
 **Outputs**:  
 
 - Profiles → `.refinery/profiles/*.json`  
