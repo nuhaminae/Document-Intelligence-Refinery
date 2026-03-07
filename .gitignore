@@ -6,6 +6,3 @@ __pycache__/
 
 # Data Folder
 data/
-
-# Ledger Artifacts
-.refinery/extraction_ledger.jsonl
