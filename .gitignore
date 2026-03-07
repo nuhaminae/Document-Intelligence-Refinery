@@ -1,9 +1,11 @@
-# Virtual Env and Cloned Directory
+# Virtual Env
 .venv
-chunkr/
 
 # Python Artifacts
 __pycache__/
 
 # Data Folder
 data/
+
+# Ledger Artifacts
+.refinery/extraction_ledger.jsonl
