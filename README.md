@@ -72,6 +72,7 @@ Document-Intelligence-Refinery/
 
 - Python 3.12+  
 - Git  
+- Docker
 
 ### Setup
 
@@ -83,6 +84,9 @@ cd Document-Intelligence-Refinery
 # Install dependencies
 pip install uv
 uv pip install -r pyproject.toml
+
+# Start Ollama
+ollama serve
 ```
 
 ---
@@ -90,44 +94,44 @@ uv pip install -r pyproject.toml
 ## Usage
 
 1. Place your PDFs in `data/`.  
-2. Run preporcessor script to deduplicate data:
 
-  ```bash
+2. 
+
+3. Optional Debugging steps:
+
+```bash
+  # Run preporcessor script to deduplicate data:
   python -m src.utils.preprocessor
-  ```
 
-3. Set document language (Optional):
+  # Set document language (Optional):
+  src/strategies/vision_extractor.py
+  LINE: data = pytesseract.image_to_data(img, lang="amh+eng", output_type=pytesseract.Output.DICT)
 
-  ```bash
-  # src/strategies/vision_extractor.py
-  ...
-    data = pytesseract.image_to_data(
-                img, lang="amh+eng", output_type=pytesseract.Output.DICT
-            )
-   ```
+  # Run extractor agent:  
+   python -m src.agents.extractor_rubric_config
 
-4. Run the extractor:  
-
-   ```bash
-   python -m src.agents.extractor
-   ```
-
-5. Run patch doc extractor (holds unified extraction result):
-
-  ```bash
+  # Run patch doc extractor (holds unified extraction result) agent:
     python -m src.agents.extract_docs
-  ```
-
-6. Run chunkr:
-   ```bash
-   python -m src.agents.chunkr
-   ```
-
-7. Run indexer:
-    ```bash
-    python -m src.agents.indexer
-    ```
     
+  # Run chunkr agent:
+   python -m src.agents.chunkr
+
+  # Run indexer agent:
+    python -m src.agents.indexer
+
+   # Run fact extractor agent:
+    python -m src.agents.fact_extractor
+
+  # Run fact vector ingestor:
+    python -m src.agents.vector_ingestor
+
+  # Run fact audit agent (optional):
+    python -m src.agents.audit_agent
+
+  # Run query agent:
+    python -m src.agents.query_agent
+```
+
 **Outputs**:  
 
 - Profiles → `.refinery/profiles/*.json`  
