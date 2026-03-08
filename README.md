@@ -28,7 +28,7 @@ The pipeline is fully Dockerized, reproducible, and demo‑ready. It supports bo
 - **Strategies**:  
   - *FastTextExtractor*: Uses pdfplumber for native, single‑column PDFs.  
   - *LayoutExtractor*: Uses Docling for multi‑column, table‑heavy, or figure‑heavy PDFs.  
-  - *VisionExtractor*: Uses MinerU + pytesseract for scanned/image‑heavy documents.  
+  - *VisionExtractor*: Uses LayoutLMv3 + OCR (pytesseract) for scanned/image‑heavy documents.  
 
 - **Fact Extraction & Vectorization**:  
   - Facts stored in SQLite (`facts.db`).  
@@ -172,7 +172,7 @@ flowchart TB
     G --> H["Narrow x_range (single column)"] & I["Wide x_range (multi-column/tables)"] & K["Highly irregular layout"]
     H --> F
     I --> J["Docling"]
-    K --> L["Vision-Augmented (MinerU/VLM)"]
+    K --> L["Vision-Augmented (OCR+VLM)"]
     E --> M{"Whitespace Ratio"}
     M --> N["Low whitespace (<0.3)"]
     N --> F
