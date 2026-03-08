@@ -3,6 +3,7 @@
 
 # Python Artifacts
 __pycache__/
+*settings.json
 
 # Data Folder
 data/
