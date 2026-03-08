@@ -46,6 +46,7 @@ dependencies = [
     "pytest>=9.0.2",
     "pyzmq>=27.1.0",
     "seaborn>=0.13.2",
+    "sentence-transformers>=5.2.3",
     "sentencepiece>=0.2.1",
     "sqlite-utils>=3.39",
     "tokenizers>=0.22.0",
