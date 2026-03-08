@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+chromadb==0.4.15
+faiss-cpu==1.7.4
+sentence-transformers==2.2.2
+numpy

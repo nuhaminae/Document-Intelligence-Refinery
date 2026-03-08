@@ -1,0 +1,83 @@
+# docker-compose.yml
+# RUN: docker-compose up query_agent for query agent
+# RUN: docker-compose run pipeline for the full sequential run.
+
+version: "3.9"
+services:
+  preprocessor:
+    build: .
+    command: python -m src.utils.preprocessor
+    volumes:
+      - ./refinery:/app/.refinery
+      - ./data:/app/data
+
+  extractor:
+    build: .
+    command: python -m src.agents.extractor_rubric_config
+    volumes:
+      - ./refinery:/app/.refinery
+      - ./data:/app/data
+
+  extract_docs:
+    build: .
+    command: python -m src.agents.extract_docs
+    volumes:
+      - ./refinery:/app/.refinery
+
+  chunkr:
+    build: .
+    command: python -m src.agents.chunkr
+    volumes:
+      - ./refinery:/app/.refinery
+
+  indexer:
+    build: .
+    command: python -m src.agents.indexer
+    volumes:
+      - ./refinery:/app/.refinery
+
+  fact_extractor:
+    build: .
+    command: python -m src.agents.fact_extractor
+    volumes:
+      - ./refinery:/app/.refinery
+
+  vector_ingestor:
+    build: .
+    command: python -m src.agents.vector_ingestor
+    volumes:
+      - ./refinery:/app/.refinery
+
+  audit_agent:
+    build: .
+    command: python -m src.agents.audit_agent
+    volumes:
+      - ./refinery:/app/.refinery
+
+  query_agent:
+    build: .
+    command: uvicorn src.agents.query_agent:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./refinery:/app/.refinery
+    ports:
+      - "8000:8000"
+
+
+  # Unified pipeline service
+  pipeline:
+    build: .
+    container_name: refinery_pipeline
+    volumes:
+      - ./refinery:/app/.refinery
+      - ./data:/app/data
+    command: >
+      bash -c "
+        python -m src.utils.preprocessor &&
+        python -m src.agents.extractor_rubric_config &&
+        python -m src.agents.extract_docs &&
+        python -m src.agents.chunkr &&
+        python -m src.agents.indexer &&
+        python -m src.agents.fact_extractor &&
+        python -m src.agents.vector_ingestor &&
+        python -m src.agents.query_agent
+      "
