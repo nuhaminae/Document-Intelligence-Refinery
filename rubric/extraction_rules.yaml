@@ -1,20 +1,20 @@
 # Extraction Rules & Thresholds
 # Externalised configuration for the Document Intelligence Refinery
 
-version: "1.1"
+version: "1.2"
 
 thresholds:
   # Character density thresholds (chars / page area)
   char_density:
     high: 0.001   # FastText candidate
     medium_low: 0.0005   # Layout-aware candidate
-    low: 0.0005   # Vision candidate
+    low: 0.0003   # Vision candidate
 
   # Whitespace ratio thresholds (whitespace area / page area)
   whitespace_ratio:
     low: 0.5      # FastText candidate
     medium: 0.6   # Layout-aware candidate
-    high: 0.6     # Vision candidate
+    high: 0.7     # Vision candidate
 
   # Image area ratio thresholds (image area / page area)
   image_area_ratio:
@@ -22,7 +22,7 @@ thresholds:
 
   # Max LDUs per page threshold
   max_ldus_per_page: 1000   # fewer page group splits
-  min_section_length: 50    # merge short paragraphs
+  min_section_length: 20    # merge short paragraphs
   max_list_items: 200       # keep lists intact unless very long
 
 confidence_scoring:
