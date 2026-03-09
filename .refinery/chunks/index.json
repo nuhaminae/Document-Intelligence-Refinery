@@ -1,0 +1,102 @@
+[
+  {
+    "document_id": "2013-E.C-Audit-finding-information",
+    "chunk_count": 6,
+    "output_file": ".refinery/chunks\\2013-E.C-Audit-finding-information_chunks.json",
+    "warnings": [
+      "Synthetic page index used for page 1",
+      "Synthetic page index used for page 2",
+      "Synthetic page index used for page 3"
+    ]
+  },
+  {
+    "document_id": "20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF",
+    "chunk_count": 30,
+    "output_file": ".refinery/chunks\\20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF_chunks.json",
+    "warnings": [
+      "Synthetic page index used for page 1",
+      "Synthetic page index used for page 2",
+      "Synthetic page index used for page 3",
+      "Synthetic page index used for page 4",
+      "Synthetic page index used for page 5",
+      "Synthetic page index used for page 6",
+      "Synthetic page index used for page 7",
+      "Synthetic page index used for page 8",
+      "Synthetic page index used for page 9",
+      "Synthetic page index used for page 10",
+      "Synthetic page index used for page 11",
+      "Synthetic page index used for page 12",
+      "Synthetic page index used for page 13",
+      "Synthetic page index used for page 14",
+      "Synthetic page index used for page 15"
+    ]
+  },
+  {
+    "document_id": "CBE Annual Report 2012-13",
+    "chunk_count": 39,
+    "output_file": ".refinery/chunks\\CBE Annual Report 2012-13_chunks.json",
+    "warnings": [
+      "Synthetic page index used for page 1",
+      "Synthetic page index used for page 2",
+      "Synthetic page index used for page 3",
+      "Synthetic page index used for page 4",
+      "Synthetic page index used for page 5",
+      "Synthetic page index used for page 6",
+      "Synthetic page index used for page 7",
+      "Synthetic page index used for page 8",
+      "Synthetic page index used for page 9",
+      "Synthetic page index used for page 10",
+      "Synthetic page index used for page 11",
+      "Synthetic page index used for page 12",
+      "Synthetic page index used for page 13",
+      "Synthetic page index used for page 14",
+      "Synthetic page index used for page 15",
+      "Synthetic page index used for page 16",
+      "Synthetic page index used for page 17",
+      "Synthetic page index used for page 18",
+      "Synthetic page index used for page 19",
+      "Synthetic page index used for page 20"
+    ]
+  },
+  {
+    "document_id": "Consumer Price Index March 2025",
+    "chunk_count": 24,
+    "output_file": ".refinery/chunks\\Consumer Price Index March 2025_chunks.json",
+    "warnings": [
+      "Synthetic page index used for page 1",
+      "Synthetic page index used for page 2",
+      "Synthetic page index used for page 3",
+      "Synthetic page index used for page 4",
+      "Synthetic page index used for page 5",
+      "Synthetic page index used for page 6",
+      "Synthetic page index used for page 7",
+      "Synthetic page index used for page 8",
+      "Synthetic page index used for page 9",
+      "Synthetic page index used for page 10",
+      "Synthetic page index used for page 11",
+      "Synthetic page index used for page 12"
+    ]
+  },
+  {
+    "document_id": "Security_Vulnerability_Disclosure_Standard_Procedure_1",
+    "chunk_count": 30,
+    "output_file": ".refinery/chunks\\Security_Vulnerability_Disclosure_Standard_Procedure_1_chunks.json",
+    "warnings": [
+      "Synthetic page index used for page 1",
+      "Synthetic page index used for page 2",
+      "Synthetic page index used for page 3",
+      "Synthetic page index used for page 4",
+      "Synthetic page index used for page 5",
+      "Synthetic page index used for page 6",
+      "Synthetic page index used for page 7",
+      "Synthetic page index used for page 8",
+      "Synthetic page index used for page 9",
+      "Synthetic page index used for page 10",
+      "Synthetic page index used for page 11",
+      "Synthetic page index used for page 12",
+      "Synthetic page index used for page 13",
+      "Synthetic page index used for page 14",
+      "Synthetic page index used for page 15"
+    ]
+  }
+]
