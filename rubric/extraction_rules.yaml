@@ -21,8 +21,9 @@ thresholds:
     max_fasttext: 0.3   # If > 30%, escalate to Vision
 
   # Max LDUs per page threshold
-  max_ldus_per_page: 200
-
+  max_ldus_per_page: 1000   # fewer page group splits
+  min_section_length: 50    # merge short paragraphs
+  max_list_items: 200       # keep lists intact unless very long
 
 confidence_scoring:
   fasttext:
