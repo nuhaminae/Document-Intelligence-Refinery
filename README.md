@@ -133,7 +133,7 @@ docker-compose run --rm pipeline
 
 ```bash
 docker-compose run --rm preprocessor
-docker-compose run --rm extractor
+docker-compose run --rm extractor_rubric_config
 docker-compose run --rm extract_docs
 docker-compose run --rm chunkr
 docker-compose run --rm indexer
@@ -149,7 +149,7 @@ docker-compose run --rm query_agent
 docker-compose up query_agent
 ```
 
-Open `http://localhost:8000` [(localhost in Bing)](https://www.bing.com/search?q="http%3A%2F%2Flocalhost%3A8000%2F") to query facts interactively.
+Open `http://localhost:8000` to query facts interactively.
 
 **Outputs**:  
 
@@ -192,7 +192,7 @@ flowchart TB
 
 - **Dockerfile**: Defines environment (Python 3.11, OCR, dependencies).  
 - **docker-compose.yml**: Defines services for each agent and unified `pipeline`.  
-- **Exposed Query Agent**: Accessible at `http://localhost:8000`. 
+- **Exposed Query Agent**: Accessible at `http://localhost:8000`.
 
 ---
 
