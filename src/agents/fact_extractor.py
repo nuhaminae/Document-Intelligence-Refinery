@@ -109,4 +109,3 @@ if __name__ == "__main__":
     extractor = FactExtractor()
     extractor.build_fact_table()
     print("Fact table built at .refinery/facts.db")
-
