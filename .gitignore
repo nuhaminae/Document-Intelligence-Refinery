@@ -7,3 +7,6 @@ __pycache__/
 
 # Data Folder
 data/
+
+# Runtime Artifacts
+.refinery/vector_store*
