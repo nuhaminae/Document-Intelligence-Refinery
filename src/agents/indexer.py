@@ -1,6 +1,6 @@
 # src/agents/indexer.py
 # Script to build a PageIndex tree with LLM-generated section summaries
-# Uses Gemma:2b via Ollama for summarisation
+# Uses Glm-5:cloud via Ollama for summarisation
 # Consumes outputs from chunker.py in .refinery/chunks/
 # Saves artifacts to .refinery/pageindex/
 
@@ -24,9 +24,7 @@ logging.basicConfig(
 
 
 def ollama_is_running() -> bool:
-    """
-    Check if the Ollama server is running locally.
-    """
+    """Check if the Ollama server is running locally."""
     try:
         ollama_session.get("http://localhost:11434")
         return True
@@ -35,10 +33,7 @@ def ollama_is_running() -> bool:
 
 
 def generate_summary(text: str, scope: str = "section") -> str:
-    """
-    Generate a summary using Glm-5:cloud model via Ollama HTTP API.
-    Uses a persistent session to avoid reconnect overhead.
-    """
+    """Generate a summary using Glm-5:cloud model via Ollama HTTP API."""
     if not ollama_is_running():
         logging.warning("⚠️ Ollama is not running. Please start it with 'ollama serve'.")
 
@@ -85,11 +80,7 @@ class Indexer:
     def build_pageindex(
         self, doc_id: str, chunks: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """
-        Build a hierarchical PageIndex tree from chunks.
-        Summarises only at the section and document level (skips chunk summaries).
-        Logs timing for each stage.
-        """
+        """Build a hierarchical PageIndex tree from chunks."""
         pageindex = {"document_id": doc_id, "pages": []}
         pages_map: Dict[int, Dict[str, Any]] = {}
 
@@ -100,15 +91,16 @@ class Indexer:
                 pages_map[page_num] = {"page_number": page_num, "sections": []}
 
             section_header = chunk["metadata"].get("header") or "Untitled Section"
-            section_content = chunk["content"]  # always a dict now
+            section_content = chunk["content"]
+            if isinstance(section_content, str):  # normalise old schema
+                section_content = {"text": section_content, "ldu_ids": []}
 
             section_node = {
                 "header": section_header,
-                "content": section_content,  # dict with "text" and "ldu_ids"
+                "content": section_content,
                 "section_summary": "",
                 "subsections": [],
             }
-
             pages_map[page_num]["sections"].append(section_node)
 
         # Section-level summaries
@@ -137,39 +129,36 @@ class Indexer:
         return pageindex
 
     def build_index(self) -> Dict[str, Any]:
-        """
-        Build per-document PageIndex trees and a global index.
-        Logs total time per document.
-        """
+        """Build per-document PageIndex trees and a global index."""
         global_index = {}
-
         for fname in os.listdir(self.chunks_dir):
             if not fname.endswith("_chunks.json"):
                 continue
             doc_id = fname.replace("_chunks.json", "")
             file_path = os.path.join(self.chunks_dir, fname)
-
-            with open(file_path, "r", encoding="utf-8") as f:
-                chunks = json.load(f)
-
-            logging.info(f"Building PageIndex for {doc_id} from {file_path}")
-
-            start_doc_index = time.time()
-            pageindex = self.build_pageindex(doc_id, chunks)
-            elapsed_doc_index = time.time() - start_doc_index
-            logging.info(f"Indexing {doc_id} took {elapsed_doc_index:.2f} seconds")
-
-            # Save per-document PageIndex
             out_path = os.path.join(self.output_dir, f"{doc_id}_pageindex.json")
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(pageindex, f, indent=2)
-            logging.info(f"Saved PageIndex → {out_path}")
 
-            # Collect executive summary for global catalog
+            if os.path.exists(out_path):
+                logging.info(f"Loading existing PageIndex for {doc_id}")
+                with open(out_path, "r", encoding="utf-8") as f:
+                    pageindex = json.load(f)
+            else:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    chunks = json.load(f)
+                logging.info(f"Building PageIndex for {doc_id} from {file_path}")
+                start_doc_index = time.time()
+                pageindex = self.build_pageindex(doc_id, chunks)
+                elapsed_doc_index = time.time() - start_doc_index
+                logging.info(f"Indexing {doc_id} took {elapsed_doc_index:.2f} seconds")
+                with open(out_path, "w", encoding="utf-8") as f:
+                    json.dump(pageindex, f, indent=2)
+                logging.info(f"Saved PageIndex → {out_path}")
+
+            # Always add to global index
             global_index[doc_id] = {
                 "document_id": doc_id,
                 "document_summary": pageindex.get("document_summary", ""),
-                "page_count": len(pageindex["pages"]),
+                "page_count": len(pageindex.get("pages", [])),
             }
 
         # Save global index
@@ -177,13 +166,10 @@ class Indexer:
         with open(global_path, "w", encoding="utf-8") as f:
             json.dump(global_index, f, indent=2)
         logging.info(f"Saved global PageIndex → {global_path}")
-
         return global_index
 
     def list_summaries(self, global_index: Dict[str, Any]) -> None:
-        """
-        Print all document executive summaries in a clean table format.
-        """
+        """Print all document executive summaries in a clean table format."""
         print("\n=== Global Executive Summaries ===")
         print(f"{'Document ID':<30} | {'Pages':<5} | Summary")
         print("-" * 80)
@@ -196,9 +182,7 @@ class Indexer:
     def export_summaries_csv(
         self, global_index: Dict[str, Any], filename: str = "global_summaries.csv"
     ) -> str:
-        """
-        Export all executive summaries to a CSV file for use in Excel/Power BI.
-        """
+        """Export all executive summaries to a CSV file for use in Excel/Power BI."""
         csv_path = os.path.join(self.output_dir, filename)
         with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
