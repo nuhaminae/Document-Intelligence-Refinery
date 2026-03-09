@@ -16,6 +16,7 @@ dependencies = [
     "docling>=2.76.0",
     "dvc>=3.65.0",
     "faiss-cpu>=1.13.2",
+    "fastapi>=0.135.1",
     "flake8>=7.3.0",
     "huggingface>=0.0.1",
     "huggingface-hub==0.36.2",
