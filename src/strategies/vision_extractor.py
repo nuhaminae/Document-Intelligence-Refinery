@@ -24,6 +24,7 @@ class VisionExtractor:
     """
     Strategy C: Vision-Augmented (OCR + LayoutLMv3)
     - Best for scanned PDFs, low-density text, or complex layouts.
+    - Groups OCR words into lines and paragraphs for coherent LDUs.
     """
 
     def __init__(self, pdf_path: str):
@@ -54,57 +55,65 @@ class VisionExtractor:
                 img, lang="amh+eng", output_type=pytesseract.Output.DICT
             )
 
-            page_ldus: List[LDU] = []
-
+            # --- Group words into lines ---
+            lines = {}
             for i, word in enumerate(data["text"]):
                 if word.strip():
-                    left, top, width, height = (
-                        data["left"][i],
-                        data["top"][i],
-                        data["width"][i],
-                        data["height"][i],
-                    )
-                    bbox = (
-                        int(left * 1000 / img.width),
-                        int(top * 1000 / img.height),
-                        int((left + width) * 1000 / img.width),
-                        int((top + height) * 1000 / img.height),
-                    )
+                    top = data["top"][i]
+                    line_key = round(top / 10)  # bucket by vertical position
+                    if line_key not in lines:
+                        lines[line_key] = []
+                    lines[line_key].append(word)
 
-                    # Build LDU
-                    ldu_id = f"ldu_{page_num}_{i}"
-                    content_hash = hashlib.sha256(word.encode("utf-8")).hexdigest()
+            # --- Merge lines into paragraphs ---
+            paragraphs = []
+            current_para = []
+            for _, words in sorted(lines.items(), key=lambda kv: kv[0]):
+                line_text = " ".join(words).strip()
+                if not line_text:
+                    if current_para:
+                        paragraphs.append(" ".join(current_para))
+                        current_para = []
+                else:
+                    current_para.append(line_text)
+            if current_para:
+                paragraphs.append(" ".join(current_para))
 
-                    ldu = LDU(
+            page_ldus: List[LDU] = []
+
+            # --- Emit LDUs at paragraph level ---
+            for j, para in enumerate(paragraphs):
+                ldu_id = f"ldu_{page_num}_{j}"
+                content_hash = hashlib.sha256(para.encode("utf-8")).hexdigest()
+                bbox = (0, 0, 1000, 1000)  # simplified bbox for paragraph
+
+                ldu = LDU(
+                    ldu_id=ldu_id,
+                    type=LDUType.paragraph,
+                    text=para,
+                    table_data=None,
+                    figure_ref=None,
+                    bbox=bbox,
+                    page_number=page_num,
+                )
+                ldus.append(ldu)
+                page_ldus.append(ldu)
+
+                provenance.append(
+                    ProvenanceChain(
                         ldu_id=ldu_id,
-                        type=LDUType.paragraph,
-                        text=word,
-                        table_data=None,
-                        figure_ref=None,
-                        bbox=bbox,
-                        page_number=page_num,
+                        strategy_used=StrategyType.vision_augmented,
+                        source_bbox=bbox,
+                        source_page=page_num,
+                        transformations=["pytesseract_ocr_grouped"],
+                        confidence_score=profile.triage_confidence,
+                        content_hash=content_hash,
                     )
-                    ldus.append(ldu)
-                    page_ldus.append(ldu)
-
-                    # --- Provenance ---
-                    provenance.append(
-                        ProvenanceChain(
-                            ldu_id=ldu_id,
-                            strategy_used=StrategyType.vision_augmented,
-                            source_bbox=bbox,
-                            source_page=page_num,
-                            transformations=["pytesseract_ocr"],
-                            confidence_score=profile.triage_confidence,
-                            content_hash=content_hash,
-                        )
-                    )
-
-            # Collect x_max values from OCR bounding boxes
-            x_max_values = [ldu.bbox[2] for ldu in page_ldus]
-            bbox_distribution = {"x_max": x_max_values}
+                )
 
             # --- Build PageIndex ---
+            x_max_values = [ldu.bbox[2] for ldu in page_ldus]
+            bbox_distribution = {"x_max": x_max_values}
             page_indexes.append(
                 PageIndex(
                     page_number=page_num,
@@ -122,4 +131,5 @@ class VisionExtractor:
             content_blocks=ldus,
             provenance_chain=provenance,
             extraction_confidence=profile.triage_confidence,
+            page_indexes=page_indexes,
         )
