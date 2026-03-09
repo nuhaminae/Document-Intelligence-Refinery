@@ -18,9 +18,9 @@ from src.strategies.vision_extractor import VisionExtractor
 
 logging.basicConfig(level=logging.INFO)
 
-PROFILES_DIR = ".refinery_2/profiles"
-LEDGER_PATH = ".refinery_2/extraction_ledger.jsonl"
-OUTPUT_DIR = ".refinery_2/extracted"
+PROFILES_DIR = ".refinery/profiles"
+LEDGER_PATH = ".refinery/extraction_ledger.jsonl"
+OUTPUT_DIR = ".refinery/extracted"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -35,7 +35,7 @@ def get_extractor(strategy, file_path):
         raise ValueError(f"Unknown strategy: {strategy}")
 
 
-def migrate_extracted_documents(input_dir="data_2"):
+def migrate_extracted_documents(input_dir="data"):
     # Load ledger entries into a dict keyed by document_id
     ledger_entries = {}
     if os.path.exists(LEDGER_PATH):
