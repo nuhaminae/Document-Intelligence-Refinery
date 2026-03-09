@@ -87,4 +87,3 @@ class AuditAgent:
 if __name__ == "__main__":
     agent = AuditAgent()
     print("AuditAgent ready. Connect and call verify_claim(claim) in interactive mode.")
-
