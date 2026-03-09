@@ -162,62 +162,83 @@ class Chunker:
     def chunk_document(self, extracted_doc: Dict[str, Any]) -> List[Chunk]:
         """
         Chunk an ExtractedDocument into Logical Document Units (LDUs).
-        Consecutive trivial text blocks are merged into larger, coherent sections
-        before validation, so summaries and indexing are more meaningful.
+        Standardises all chunks so content is always a dict with 'text' and optional 'ldu_ids'.
         """
         chunks = []
         merged_buffer = []
 
         for block in extracted_doc.get("content_blocks", []):
+            ldu_id = block.get("ldu_id")
             ldu_type = block.get("type")
             text = block.get("text", "")
+
+            def make_chunk(chunk_type, text_value, extra_meta=None):
+                return Chunk(
+                    type=chunk_type,
+                    content={"text": text_value, "ldu_ids": [ldu_id] if ldu_id else []},
+                    metadata=extra_meta or {},
+                )
 
             if ldu_type == "table":
                 if merged_buffer:
                     merged_text = " ".join(merged_buffer)
-                    chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                    chunks.append(make_chunk("section", merged_text))
                     merged_buffer = []
-                chunks.append(Chunk(type="table", content=block.get("table_data"), metadata={"header": block.get("metadata", {}).get("header")}))
+                table_text = json.dumps(block.get("table_data"))
+                chunks.append(
+                    make_chunk(
+                        "table",
+                        table_text,
+                        {"header": block.get("metadata", {}).get("header")},
+                    )
+                )
+
             elif ldu_type == "figure":
                 if merged_buffer:
                     merged_text = " ".join(merged_buffer)
-                    chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                    chunks.append(make_chunk("section", merged_text))
                     merged_buffer = []
-                if chunks and chunks[-1].type == "section" and len(str(chunks[-1].content)) < 100:
-                    chunks[-1].content += f" [Figure: {block.get('figure_ref')}]"
-                else:
-                    chunks.append(Chunk(type="figure", content=block.get("figure_ref"), metadata={"caption": block.get("metadata", {}).get("caption")}))
+                caption = block.get("metadata", {}).get("caption")
+                chunks.append(
+                    make_chunk("figure", block.get("figure_ref"), {"caption": caption})
+                )
+
             elif ldu_type == "list":
                 if merged_buffer:
                     merged_text = " ".join(merged_buffer)
-                    chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                    chunks.append(make_chunk("section", merged_text))
                     merged_buffer = []
                 list_items = block.get("text").splitlines()
-                if len(list_items) <= self.validator.thresholds.get("max_list_items", 200):
-                    chunks.append(Chunk(type="list", content=list_items, metadata={"rule": "list_intact"}))
-                else:
-                    for i in range(0, len(list_items), 200):
-                        batch = list_items[i:i+200]
-                        chunks.append(Chunk(type="list", content=batch, metadata={"rule": "list_split"}))
+                list_text = " ".join(list_items)
+                rule = (
+                    "list_intact"
+                    if len(list_items)
+                    <= self.validator.thresholds.get("max_list_items", 200)
+                    else "list_split"
+                )
+                chunks.append(make_chunk("list", list_text, {"rule": rule}))
+
             elif ldu_type == "equation":
                 if merged_buffer:
                     merged_text = " ".join(merged_buffer)
-                    chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                    chunks.append(make_chunk("section", merged_text))
                     merged_buffer = []
-                if chunks and chunks[-1].type == "section" and len(str(chunks[-1].content)) < 100:
-                    chunks[-1].content += f" [Equation: {block.get('text')}]"
-                else:
-                    chunks.append(Chunk(type="equation", content=block.get("text"), metadata={"rule": "equation_atomic"}))
+                chunks.append(
+                    make_chunk(
+                        "equation", block.get("text"), {"rule": "equation_atomic"}
+                    )
+                )
+
             elif ldu_type == "footnote":
                 if merged_buffer:
                     merged_text = " ".join(merged_buffer)
-                    chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                    chunks.append(make_chunk("section", merged_text))
                     merged_buffer = []
-                if chunks and chunks[-1].type == "section" and len(str(chunks[-1].content)) < 100:
-                    chunks[-1].content += f" [Footnote: {block.get('text')}]"
-                else:
-                    chunks.append(Chunk(type="footnote", content=block.get("text"), metadata={"reference_id": block.get("ldu_id")}))
-            else:
+                chunks.append(
+                    make_chunk("footnote", block.get("text"), {"reference_id": ldu_id})
+                )
+
+            else:  # default: section
                 if self.is_noise_block(text):
                     continue
                 elif self.is_trivial_text(text) or len(text.strip()) < 50:
@@ -225,21 +246,28 @@ class Chunker:
                 else:
                     if merged_buffer:
                         merged_text = " ".join(merged_buffer)
-                        chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
+                        chunks.append(make_chunk("section", merged_text))
                         merged_buffer = []
-                    chunks.append(Chunk(type="section", content=text, metadata={"header": block.get("metadata", {}).get("header")}))
+                    chunks.append(
+                        make_chunk(
+                            "section",
+                            text,
+                            {"header": block.get("metadata", {}).get("header")},
+                        )
+                    )
 
         if merged_buffer:
             merged_text = " ".join(merged_buffer)
-            chunks.append(Chunk(type="section", content=merged_text, metadata={"header": None}))
-            merged_buffer = []
+            chunks.append(make_chunk("section", merged_text))
 
         # Page index fallback
         page_indexes = extracted_doc.get("page_indexes", [])
         max_ldus_per_page = self.validator.thresholds.get("max_ldus_per_page", 1000)
 
         if not page_indexes:
-            logging.info("No page_indexes found, falling back to grouping by page_number")
+            logging.info(
+                "No page_indexes found, falling back to grouping by page_number"
+            )
             synthetic_indexes = {}
             for block in extracted_doc.get("content_blocks", []):
                 page_num = block.get("page_number")
@@ -247,17 +275,51 @@ class Chunker:
                     synthetic_indexes[page_num] = []
                 synthetic_indexes[page_num].append(block.get("ldu_id"))
 
+            ldu_lookup = {
+                block.get("ldu_id"): block.get("text", "")
+                for block in extracted_doc.get("content_blocks", [])
+            }
+
             for page_num, ldu_ids in synthetic_indexes.items():
+                resolved_texts = [ldu_lookup.get(ldu_id, "") for ldu_id in ldu_ids]
+                aggregated_text = " ".join(resolved_texts)
+
                 if len(ldu_ids) > max_ldus_per_page:
                     for i in range(0, len(ldu_ids), max_ldus_per_page):
-                        batch = ldu_ids[i:i+max_ldus_per_page]
-                        chunks.append(Chunk(type="page_group", content=batch, metadata={"page_number": page_num, "rule": "synthetic_page_index", "synthetic": True, "batch_index": i // max_ldus_per_page}))
+                        batch = ldu_ids[i : i + max_ldus_per_page]
+                        batch_texts = [ldu_lookup.get(ldu_id, "") for ldu_id in batch]
+                        chunks.append(
+                            Chunk(
+                                type="page_group",
+                                content={
+                                    "text": " ".join(batch_texts),
+                                    "ldu_ids": batch,
+                                },
+                                metadata={
+                                    "page_number": page_num,
+                                    "rule": "synthetic_page_index",
+                                    "synthetic": True,
+                                    "batch_index": i // max_ldus_per_page,
+                                },
+                            )
+                        )
                 else:
-                    chunks.append(Chunk(type="page_group", content=ldu_ids, metadata={"page_number": page_num, "rule": "synthetic_page_index", "synthetic": True}))
+                    chunks.append(
+                        Chunk(
+                            type="page_group",
+                            content={"text": aggregated_text, "ldu_ids": ldu_ids},
+                            metadata={
+                                "page_number": page_num,
+                                "rule": "synthetic_page_index",
+                                "synthetic": True,
+                            },
+                        )
+                    )
 
         validated_chunks = self.validator.validate(chunks)
         logging.info(f"Produced {len(validated_chunks)} validated chunks")
         return validated_chunks
+
 
 class ChunkLoader:
     """
