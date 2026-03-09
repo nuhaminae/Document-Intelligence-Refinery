@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Any, Dict, List
 
-from src.agents.audit_agent import AuditAgent 
+from src.agents.audit_agent import AuditAgent
 
 logging.basicConfig(level=logging.INFO)
 
@@ -122,5 +122,6 @@ class QueryAgent:
 
 if __name__ == "__main__":
     agent = QueryAgent()
-    print("QueryAgent ready. Use pageindex_navigate, semantic_search, structured_query interactively.")
-
+    print(
+        "QueryAgent ready. Use pageindex_navigate, semantic_search, structured_query interactively."
+    )
