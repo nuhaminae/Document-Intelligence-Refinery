@@ -36,7 +36,7 @@ def ollama_is_running() -> bool:
 
 def generate_summary(text: str, scope: str = "section") -> str:
     """
-    Generate a summary using Gemma:2b via Ollama HTTP API.
+    Generate a summary using Glm-5:cloud model via Ollama HTTP API.
     Uses a persistent session to avoid reconnect overhead.
     """
     if not ollama_is_running():
@@ -50,7 +50,7 @@ def generate_summary(text: str, scope: str = "section") -> str:
         prompt = f"Summarize this {scope}: {text}"
         response = ollama_session.post(
             "http://localhost:11434/api/generate",
-            json={"model": "gemma:2b", "prompt": prompt},
+            json={"model": "glm-5:cloud", "prompt": prompt},
             stream=True,
         )
         response.raise_for_status()
@@ -100,14 +100,11 @@ class Indexer:
                 pages_map[page_num] = {"page_number": page_num, "sections": []}
 
             section_header = chunk["metadata"].get("header") or "Untitled Section"
-            section_content = chunk["content"]
-            if isinstance(section_content, list):
-                # Flatten list into a string
-                section_content = " ".join(str(item) for item in section_content)
+            section_content = chunk["content"]  # always a dict now
 
             section_node = {
                 "header": section_header,
-                "content": [section_content],  # always a string
+                "content": section_content,  # dict with "text" and "ldu_ids"
                 "section_summary": "",
                 "subsections": [],
             }
@@ -118,7 +115,7 @@ class Indexer:
         start_sections = time.time()
         for page in pages_map.values():
             for section in page["sections"]:
-                aggregated_text = " ".join(section["content"])
+                aggregated_text = section["content"]["text"]
                 section["section_summary"] = generate_summary(
                     aggregated_text, scope="section"
                 )
@@ -128,7 +125,7 @@ class Indexer:
         # Whole-document summary
         start_doc = time.time()
         all_text = " ".join(
-            " ".join(section["content"])
+            section["content"]["text"]
             for page in pages_map.values()
             for section in page["sections"]
         )
