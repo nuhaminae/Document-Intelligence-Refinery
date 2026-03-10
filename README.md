@@ -16,9 +16,10 @@ The pipeline is fully Dockerized, reproducible, and demo‑ready. It supports bo
 ## Key Feature
 
 - **Corpus Coverage**: Representative files selected from each class (least chunk size):
-  - Class A (native text): `Company_Profile_2024_25.pdf`
-  - Class B (scanned/image-based): `2021_Audited_Financial_Statement_Report.pdf`
-  - Class C (mixed text + tables): `CBE Annual Report 2012-13.pdf`
+  - Class A (native text): `CBE Annual Report 2012-13.pdf`
+  - Class B1 (scanned/image-based): `Security_Vulnerability_Disclosure_Standard_Procedure_1.pdf`
+  - Class B2 (scanned/image-based) (Amharic): `2013-E.C-Audit-finding-information.pdf`
+  - Class C (mixed text + tables): `20191010_Pharmaceutical-Manufacturing-Opportunites-in-Ethiopia_VF.pdf`
   - Class D (table-heavy numeric): `Consumer Price Index March 2025.pdf`
 
 - **Triage Agent**: Computes metrics (character density, whitespace ratio, bounding box distribution, image ratio) and classifies documents into profiles.
@@ -64,6 +65,8 @@ The pipeline is fully Dockerized, reproducible, and demo‑ready. It supports bo
     - [Individual Agent Runs](#individual-agent-runs)
     - [Query Agent (Interactive)](#query-agent-interactive)
   - [Extraction Strategy Decision Tree](#extraction-strategy-decision-tree)
+  - [Escalation Strategy](#escalation-strategy)
+  - [Extraction Cost Estimation](#extraction-cost-estimation)
   - [Dockerization](#dockerization)
   - [Project Status](#project-status)
 
@@ -77,7 +80,7 @@ Document-Intelligence-Refinery/
 │   ├── agents/
 │   │   ├── extractor_rubric_config.py
 │   │   ├── extract_docs.py
-│   │   ├── chunkr.py
+│   │   ├── chunker.py
 │   │   ├── indexer.py
 │   │   ├── fact_extractor.py
 │   │   ├── vector_ingestor.py
@@ -104,7 +107,7 @@ Document-Intelligence-Refinery/
 
 ### Prerequisites
 
-- Python 3.11+  
+- Python 3.12  
 - Git  
 - Docker & Docker Compose  
 
@@ -188,9 +191,71 @@ flowchart TB
 
 ---
 
+## Escalation Strategy
+
+The router uses **triage metrics** (character density, whitespace ratio, image area ratio, font metadata, layout complexity) to decide the initial strategy:
+
+- **FastText (pdfplumber)** → chosen if:
+  - High character density (`>0.001` chars per page area).  
+  - Low whitespace (`<0.5`).  
+  - Fonts are embedded and origin type is digital.  
+  - Image ratio is low (`<0.3`).  
+  → Best for clean, native PDFs.
+
+- **Layout‑Aware (Docling)** → chosen if:
+  - Layout complexity is multi‑column or table‑heavy.  
+  - Or density is medium (`~0.0005`) with structured layouts.  
+  → Best for reports with tables, figures, multi‑column text.
+
+- **Vision/OCR (pytesseract + LayoutLMv3)** → chosen if:
+  - Density is very low (`<0.0005`).  
+  - Whitespace ratio is high (`>0.6`).  
+  - Image area ratio is high (`>0.3`).  
+  - Or FastText/Layout confidence is low.  
+  → Best for scanned/image‑based PDFs.
+
+**Escalation policy:**  
+
+- Start with the cheapest/fastest strategy.  
+- If extraction confidence < 0.75, escalate:  
+  - FastText → Layout → Vision.  
+- Vision is the “last resort” because it’s slower and more costly (OCR + transformer).
+
+---
+
+## Extraction Cost Estimation
+
+The router estimates cost using a simple token‑based formula:
+
+1. **Token count**:  
+   - It serialises the extracted document JSON (`json.dumps(extracted_doc.model_dump())`).  
+   - Divides length by 4 to approximate token count.  
+
+2. **Cost per token**:  
+   - `(tokens / 1000) * 0.01` USD.  
+   - So ~1 cent per 1,000 tokens.  
+
+3. **Budget guard**:  
+   - Max cost per document = **$0.50**.  
+   - If escalation is needed but cost would exceed this, it won’t escalate further.  
+
+This ensures extraction stays cheap and predictable, while still escalating when confidence is low.
+
+**Approach:**
+
+| Corpus Category | Extraction Strategy | Extraction Confidence | cost estimate |
+| -- | --- | -- | -- |
+| Class A | Vision Augmented | 0.6 | {"tokens": 8756, "runtime_sec": 44.71, "usd": 0.0876} |
+| Class B1 | Vision Augmented | 0.6 | {"tokens": 7035, "runtime_sec": 46.09, "usd": 0.0704} |
+| Class B2 | Vision Augmented | 0.6 | {"tokens": 2022, "runtime_sec": 8.12, "usd": 0.0202} |
+| Class C | Vision Augmented | 0.75 | {"tokens": 3705, "runtime_sec": 39.94, "usd": 0.037} |
+| Class D | Vision Augmented | 0.6 | {"tokens": 5268, "runtime_sec": 27.54, "usd": 0.0527} |
+
+---
+
 ## Dockerization
 
-- **Dockerfile**: Defines environment (Python 3.11, OCR, dependencies).  
+- **Dockerfile**: Defines environment (Python 3.12, OCR, dependencies).  
 - **docker-compose.yml**: Defines services for each agent and unified `pipeline`.  
 - **Exposed Query Agent**: Accessible at `http://localhost:8000`.
 
