@@ -1,83 +1,101 @@
 # docker-compose.yml
-# RUN: docker-compose up query_agent for query agent
-# RUN: docker-compose run pipeline for the full sequential run.
 
-version: "3.9"
+# RUN: `docker-compose build query_agent_rest` rebuild query agent
+# RUN: `docker-compose up query_agent_rest` run query agent
+# RUN: `docker-compose build query_agent_repl` rebuild query agent
+# RUN: `docker-compose up query_agent_repl` run query agent
+
+# RUN: `docker-compose build pipeline` rebuild pipeline
+# RUN: `docker-compose run pipeline` for the full sequential run.
+
 services:
   preprocessor:
     build: .
     command: python -m src.utils.preprocessor
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
       - ./data:/app/data
 
   extractor:
     build: .
     command: python -m src.agents.extractor_rubric_config
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
       - ./data:/app/data
 
   extract_docs:
     build: .
     command: python -m src.agents.extract_docs
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
 
-  chunkr:
+  chunker:
     build: .
-    command: python -m src.agents.chunkr
+    command: python -m src.agents.chunker
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
 
   indexer:
     build: .
     command: python -m src.agents.indexer
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
 
   fact_extractor:
     build: .
     command: python -m src.agents.fact_extractor
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
 
   vector_ingestor:
     build: .
     command: python -m src.agents.vector_ingestor
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
 
   audit_agent:
     build: .
     command: python -m src.agents.audit_agent
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
+    stdin_open: true
+    tty: true
 
-  query_agent:
+  # Query agent in REST API mode (FastAPI/Uvicorn)
+  query_agent_rest:
     build: .
-    command: uvicorn src.agents.query_agent:app --host 0.0.0.0 --port 8000
+    image: refinery/query_agent_rest:latest
+    command: uvicorn src.api:app --host 0.0.0.0 --port 8000
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
     ports:
       - "8000:8000"
 
+
+
+  # Query agent in REPL/interactive mode
+  query_agent_repl:
+    build: .
+    command: python
+    volumes:
+      - ./.refinery:/app/.refinery
+    stdin_open: true
+    tty: true
 
   # Unified pipeline service
   pipeline:
     build: .
     container_name: refinery_pipeline
     volumes:
-      - ./refinery:/app/.refinery
+      - ./.refinery:/app/.refinery
       - ./data:/app/data
     command: >
       bash -c "
         python -m src.utils.preprocessor &&
         python -m src.agents.extractor_rubric_config &&
         python -m src.agents.extract_docs &&
-        python -m src.agents.chunkr &&
+        python -m src.agents.chunker &&
         python -m src.agents.indexer &&
         python -m src.agents.fact_extractor &&
-        python -m src.agents.vector_ingestor &&
-        python -m src.agents.query_agent
+        python -m src.agents.vector_ingestor
       "
