@@ -1,15 +1,17 @@
 # src/models/models.py
-# script to define pydantic schemas
+# Pydantic schemas for the Document Intelligence Refinery.
+# Modified after Peer's explainer
 
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+# --- Enumerations ---
 
 
-# --- Enumeration for set of constants ---
 class OriginType(str, Enum):
-    """Differentiates between digital, scanned, and mixed documents"""
+    """Differentiates between digital, scanned, and mixed documents."""
 
     digital = "digital"
     scanned = "scanned"
@@ -18,7 +20,7 @@ class OriginType(str, Enum):
 
 
 class LayoutComplexity(str, Enum):
-    """Differentiates between simple and complex layouts"""
+    """Differentiates between simple and complex document layouts."""
 
     single_column = "single_column"
     multi_column = "multi_column"
@@ -28,7 +30,7 @@ class LayoutComplexity(str, Enum):
 
 
 class StrategyType(str, Enum):
-    """Differentiates between extraction strategies"""
+    """Differentiates between extraction strategies."""
 
     fasttext = "FastText"
     layout_aware = "LayoutAware"
@@ -36,7 +38,7 @@ class StrategyType(str, Enum):
 
 
 class LDUType(str, Enum):
-    """Differentiates between Logic Document Unit (LDU) types"""
+    """Logical Document Unit type."""
 
     paragraph = "paragraph"
     table = "table"
@@ -45,14 +47,16 @@ class LDUType(str, Enum):
 
 
 # --- Core Models ---
+
+
 class DocumentProfile(BaseModel):
-    """Core document profile model"""
+    """Document profile produced by the triage agent."""
 
     document_id: str
     file_path: str
     origin_type: OriginType
     layout_complexity: LayoutComplexity
-    domain_hint: Optional[str]
+    domain_hint: Optional[str] = None
     char_density: float
     whitespace_ratio: float
     bbox_distribution: Dict[str, List[float]]
@@ -60,7 +64,7 @@ class DocumentProfile(BaseModel):
 
 
 class ProvenanceChain(BaseModel):
-    """Provenance chain model  that tracks how each LDU was extracted and transformed"""
+    """Provenance record for one extracted LDU."""
 
     ldu_id: str
     strategy_used: StrategyType
@@ -72,19 +76,19 @@ class ProvenanceChain(BaseModel):
 
 
 class LDU(BaseModel):
-    """Logic Document Unit (LDU) model that captures atomic units of content"""
+    """Logical Document Unit: atomic unit of extracted document content."""
 
     ldu_id: str
     type: LDUType
-    text: Optional[str]
-    table_data: Optional[List[List[str]]]
-    figure_ref: Optional[str]
+    text: Optional[str] = None
+    table_data: Optional[List[List[str]]] = None
+    figure_ref: Optional[str] = None
     bbox: Tuple[float, float, float, float]
     page_number: int
 
 
 class PageIndex(BaseModel):
-    """Page index model that captures page metrics and LDU data for efficeint retrieval"""
+    """Page-level navigation and layout summary."""
 
     page_number: int
     ldus: List[LDU]
@@ -94,10 +98,24 @@ class PageIndex(BaseModel):
 
 
 class ExtractedDocument(BaseModel):
-    """Extracted document model that holds unified extraction results of a document"""
+    """
+    Unified extraction result.
+
+    Important:
+    - `extraction_confidence` is now a post-extraction quality score.
+    - It should not simply copy `DocumentProfile.triage_confidence`.
+    - `output_quality` stores Gate 2 evidence from src/utils/extraction_quality.py.
+    """
 
     document_id: str
     strategy_used: StrategyType
     content_blocks: List[LDU]
     provenance_chain: List[ProvenanceChain]
     extraction_confidence: float
+
+    # Optional richer artifacts.
+    page_indexes: Optional[List[PageIndex]] = None
+
+    # Gate 2 quality evidence. Kept as dict to avoid circular imports between
+    # src.models and src.utils.extraction_quality.
+    output_quality: Optional[Dict[str, Any]] = Field(default=None)
