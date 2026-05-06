@@ -55,3 +55,20 @@ chunking_rules:
 budget_guard:
   max_cost_per_document_usd: 0.50
   escalation_policy: "Escalate from FastText → LayoutAware → Vision only if confidence < threshold."
+
+# Added after Peer Explainer
+post_extraction_quality:
+  min_content_blocks: 100
+  min_bbox_coverage_ratio: 0.80
+  min_provenance_coverage_ratio: 0.80
+  table_bonus_weight: 0.10
+  block_count_weight: 0.60
+  bbox_coverage_weight: 0.30
+  placeholder_bbox_penalty: 0.20
+
+routing_verdicts:
+  correct_primary: "Initial cheap/appropriate strategy passed post-extraction quality."
+  correct_escalation: "Initial strategy failed post-extraction quality and escalation succeeded."
+  suspected_collapse: "Expensive strategy used without a recorded failed cheaper attempt."
+  budget_blocked: "Escalation was needed but exceeded budget."
+  failed_all: "All attempted strategies failed quality checks."
